@@ -2,23 +2,20 @@ import com.slack.api.bolt.App;
 import com.slack.api.bolt.AppConfig;
 import com.slack.api.bolt.response.Response;
 import com.slack.api.bolt.socket_mode.SocketModeApp;
+import com.slack.api.methods.SlackApiException;
 import com.slack.api.methods.response.chat.ChatPostMessageResponse;
-import com.slack.api.model.block.LayoutBlock;
-import com.slack.api.model.block.SectionBlock;
 import com.slack.api.model.event.AppHomeOpenedEvent;
 import com.slack.api.model.event.AppMentionEvent;
 import com.slack.api.model.event.MessageEvent;
 import com.slack.api.model.event.ReactionAddedEvent;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.slack.api.model.block.Blocks.*;
 import static com.slack.api.model.block.composition.BlockCompositions.*;
 import static com.slack.api.model.block.element.BlockElements.*;
 import static com.slack.api.model.view.Views.*;
-import static com.slack.api.model.view.Views.viewSubmit;
 
 /**
  * Update by andrey on 23:44 31.01.2021
@@ -76,16 +73,81 @@ public class WSocket {
                             .title(viewTitle(vt -> vt.type("plain_text").text("Modal by Global Shortcut")))
                             .close(viewClose(vc -> vc.type("plain_text").text("Close")))
                             .submit(viewSubmit(vs -> vs.type("plain_text").text("Submit")))
-                            .blocks(asBlocks(input(input -> input
-                                    .blockId("agenda-block")
-                                    .element(plainTextInput(pti -> pti.actionId("agenda-action").multiline(true)))
-                                    .label(plainText(pt -> pt.text("Detailed Agenda").emoji(true)))
+                            .blocks(asBlocks(
+//                                    input(input -> input
+//                                    .blockId("agenda-block")
+//                                    .element(plainTextInput(pti -> pti.actionId("agenda-action").multiline(true)))
+//                                    .label(plainText(pt -> pt.text("Detailed Agenda").emoji(true)))
+                                    section(section -> section.text(markdownText("Select description"))
+                                            .blockId("Action selection")
+                                            .accessory(staticSelect(a ->
+                                                            a.placeholder(plainText(pt -> pt.text("Select an item")))
+                                                                    .options(
+                                                                            asOptions(
+                                                                                    option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
+                                                                                    option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
+                                                                            )
+                                                                    )
+                                                    )
+                                            )
+                                    )
                             )))
-                    )));
+                    ));
             return ctx.ack();
         });
 
-        app.viewSubmission("test-view", (req, ctx) -> ctx.ack());
+        app.globalShortcut("open_modal", (req, ctx) -> {
+            var logger = ctx.logger;
+            try {
+                var payload = req.getPayload();
+                // Call the conversations.create method using the built-in WebClient
+                var modalView = view(v -> v
+                        .type("modal")
+                        .title(viewTitle(vt -> vt.type("plain_text").text("My App")))
+                        .submit(viewSubmit(vc -> vc.type("plain_text").text("Submit")))
+                        .blocks(asBlocks(
+                                section(s -> s.text(markdownText(mt ->
+                                        mt.text("About the simplest modal you could conceive of :smile: Maybe " +
+                                                "<https://api.slack.com/reference/block-kit/interactive-components|*make" +
+                                                " the modal interactive*> or " +
+                                                "<https://api.slack.com/surfaces/modals/using#modifying|*learn more " +
+                                                "advanced modal use cases*>.")))),
+                                context(c -> c.elements(asContextElements(
+                                        markdownText("Psssst this modal was designed using " +
+                                                "<https://api.slack.com/tools/block-kit-builder|*Block Kit Builder*>")
+                                ))),
+                                section(section -> section.text(markdownText("Select description"))
+                                        .accessory(staticSelect(a ->
+                                                        a.placeholder(plainText(pt -> pt.text("Select an item")))
+                                                                .options(
+                                                                        asOptions(
+                                                                                option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
+                                                                                option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
+                                                                        )
+                                                                )
+                                                )
+                                        )
+                                )
+                        ))
+                );
+                var result = ctx.client().viewsOpen(r -> r
+                        // The token you used to initialize your app
+                        .token(System.getenv("SLACK_BOT_TOKEN"))
+                        .triggerId(payload.getTriggerId())
+                        .view(modalView)
+                );
+                // Print result
+                logger.info("result: {}", result);
+            } catch (IOException | SlackApiException e) {
+                logger.error("error: {}", e.getMessage(), e);
+            }
+            return ctx.ack();
+        });
+
+        app.viewSubmission("test-view", (req, ctx) -> {
+            System.out.println("!! test view section !!");
+            return ctx.ack();
+        });
 
         app.messageShortcut("socket-mode-message-shortcut", (req, ctx) -> {
             ctx.respond("It works!");
@@ -123,74 +185,28 @@ public class WSocket {
             ctx.say(asBlocks(
                     divider(),
                     actions(actions -> actions.elements(asElements(
-                            button(b -> b.text(plainText(pt -> pt.text("Button1"))).value("button1").actionId("button_1"))
-                            , button(c -> c.text(plainText(pt -> pt.text("Button2"))).value("button1").actionId("button_2"))
+                            button(b -> b.text(plainText(pt -> pt.text("Button1"))).value("button1").actionId("button_1")),
+                            button(c -> c.text(plainText(pt -> pt.text("Button2"))).value("button1").actionId("button_2"))
                             ))
                     )
             ));
-            SelectHandler selectHandler = new SelectHandler();
 
-            List<LayoutBlock> blockList = new ArrayList<>();
-//            blockList.add(section(section -> section.text(markdownText("Select description"))
-//                    .accessory(staticSelect(a ->
-//                                    a.placeholder(plainText(pt -> pt.text("Select an item")))
-//                                            .options(
-//                                                    asOptions(
-//                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
-//                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
-//                                                    )
-//                                            )
-//                            )
-//                    )
-//            ));
-            SectionBlock sectionBlock = new SectionBlock();
-            sectionBlock.setAccessory(staticSelect(a ->
-                    a.placeholder(plainText(pt -> pt.text("Select an item")))
-                            .options(
-                                    asOptions(
-                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
-                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
-                                    )
+            ctx.say(asBlocks(section(section -> section.text(markdownText("Select description"))
+                    .accessory(staticSelect(a ->
+                                    a.placeholder(plainText(pt -> pt.text("Select an item")))
+                                            .options(
+                                                    asOptions(
+                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
+                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
+                                                    )
+                                            )
                             )
-            ));
-            blockList = asBlocks(sectionBlock);
-
-//            section(section -> section.text(markdownText("Text of section"))
-//                    .accessory(button(b -> b.text(plainText(pt -> pt.text("Button1"))).value("button1").actionId("button_1")))
-//            )
-
-            ChatPostMessageResponse e = ctx.say(blockList);
+                    )
+            )));
 
             System.out.println(ctx.ack().getBody());
-            System.out.println(e.getChannel());
-
-//            selectHandler.apply(ctx.ackWithJson());
-
-//            System.out.println("!!!!!!!!!! " + ctx.getChannelId());
-
-//            var appHomeView = view(view -> {
-//                System.out.println("1!!!!!");
-//                return view.type("home")
-//                        .blocks(asBlocks(
-//                                divider(),
-//                                actions(actions -> actions.elements(asElements(
-//                                        button(b -> b.text(plainText(pt -> pt.text("Click me!"))).value("button1").actionId("button_1"))
-//                                        ))
-//                                )
-//                        ));
-//            });
             return ctx.ack();
         });
-
-//        App response = app.event(AppHomeOpenedEvent.class, (payload, ctx) -> {
-//
-//            var res = ctx.client().viewsPublish(r -> {
-//                System.out.println("2!!!!!!");
-//                return r.userId(payload.getEvent().getUser())
-//                        .view(appHomeView);
-//            });
-//            return ctx.ack();
-//        });
 
         String appToken = System.getenv("SLACK_APP_TOKEN");
 
