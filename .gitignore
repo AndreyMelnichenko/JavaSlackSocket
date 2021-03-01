@@ -1,0 +1,16 @@
+.gradle
+.idea
+build
+out
+.allure
+target
+allure-results
+src/test/java/com/tablohub/Api/dtoTest.java
+src/main/java/utils/showDir.java
+src/main/java/utils/dynamikJsonKeys.json
+src/test/java/com/Test
+src/main/java/core/Test
+backup_test.json
+*test.json
+*.pdf
+gradle

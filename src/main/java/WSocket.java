@@ -1,3 +1,4 @@
+import Utils.PojoConverter;
 import com.slack.api.bolt.App;
 import com.slack.api.bolt.AppConfig;
 import com.slack.api.bolt.response.Response;
@@ -31,10 +32,6 @@ public class WSocket {
             return chain.next(req);
         });
 
-        app.command("/start", (req, ctx) -> {
-            return ctx.ack("Yes, I'm running in the Socket Mode!");
-        });
-
         app.command("/hello", (req, ctx) -> {
             ctx.say(asBlocks(
                     section(section -> section.blockId("select-users").text(markdownText("*Select Users*")).accessory(multiUsersSelect(select -> select.actionId("select-user-action").placeholder(plainText("Select users that should recieve your survey"))))),
@@ -43,8 +40,11 @@ public class WSocket {
             return ctx.ack();
         });
 
-        app.blockAction("a", (req, ctx) -> {
-            System.out.println("Block Action event");
+        app.blockAction("users-select", (req, ctx) -> {
+            System.out.println("!! Select Block Action event !!");
+
+            System.out.println(PojoConverter.convertPojoToPrettyJsonString(req));
+            System.out.println(PojoConverter.convertPojoToPrettyJsonString(ctx));
             actionCalled.set(true);
             return Response.builder().body("Thanks").build();
         });
@@ -68,30 +68,30 @@ public class WSocket {
             ctx.asyncClient().viewsOpen(r -> r
                     .triggerId(req.getContext().getTriggerId())
                     .view(view(v -> v
-                            .type("modal")
-                            .callbackId("test-view")
-                            .title(viewTitle(vt -> vt.type("plain_text").text("Modal by Global Shortcut")))
-                            .close(viewClose(vc -> vc.type("plain_text").text("Close")))
-                            .submit(viewSubmit(vs -> vs.type("plain_text").text("Submit")))
-                            .blocks(asBlocks(
+                                    .type("modal")
+                                    .callbackId("test-view")
+                                    .title(viewTitle(vt -> vt.type("plain_text").text("Modal by Global Shortcut")))
+                                    .close(viewClose(vc -> vc.type("plain_text").text("Close")))
+                                    .submit(viewSubmit(vs -> vs.type("plain_text").text("Submit")))
+                                    .blocks(asBlocks(
 //                                    input(input -> input
 //                                    .blockId("agenda-block")
 //                                    .element(plainTextInput(pti -> pti.actionId("agenda-action").multiline(true)))
 //                                    .label(plainText(pt -> pt.text("Detailed Agenda").emoji(true)))
-                                    section(section -> section.text(markdownText("Select description"))
-                                            .blockId("Action selection")
-                                            .accessory(staticSelect(a ->
-                                                            a.placeholder(plainText(pt -> pt.text("Select an item")))
-                                                                    .options(
-                                                                            asOptions(
-                                                                                    option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
-                                                                                    option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
-                                                                            )
-                                                                    )
+                                            section(section -> section.text(markdownText("Select description"))
+                                                    .blockId("users-select")
+                                                    .accessory(staticSelect(a ->
+                                                                    a.placeholder(plainText(pt -> pt.text("Select an item")))
+                                                                            .options(
+                                                                                    asOptions(
+                                                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
+                                                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
+                                                                                    )
+                                                                            ).actionId("users-select")
+                                                            )
                                                     )
                                             )
-                                    )
-                            )))
+                                    )))
                     ));
             return ctx.ack();
         });
@@ -144,6 +144,25 @@ public class WSocket {
             return ctx.ack();
         });
 
+//        app.message("hello", (req, ctx) -> {
+//            var logger = ctx.logger;
+//            try {
+//                var event = req.getEvent();
+//                // Call the chat.postMessage method using the built-in WebClient
+//                var result = ctx.client().chatPostMessage(r -> r
+//                        // The token you used to initialize your app is stored in the `context` object
+//                        .token(ctx.getBotToken())
+//                        // Payload message should be posted in the channel where original message was heard
+//                        .channel(event.getChannel())
+//                        .text("world")
+//                );
+//                logger.info("result: {}", result);
+//            } catch (IOException | SlackApiException e) {
+//                logger.error("error: {}", e.getMessage(), e);
+//            }
+//            return ctx.ack();
+//        });
+
         app.viewSubmission("test-view", (req, ctx) -> {
             System.out.println("!! test view section !!");
             return ctx.ack();
@@ -164,47 +183,69 @@ public class WSocket {
             return ctx.ack();
         });
 
-        app.event(ReactionAddedEvent.class, (payload, ctx) -> {
-            System.out.println("Reaction!!!");
-            ReactionAddedEvent event = payload.getEvent();
-            if (event.getReaction().equals("white_check_mark")) {
-                ChatPostMessageResponse message = ctx.client().chatPostMessage(r -> r
-                        .channel(event.getItem().getChannel())
-                        .threadTs(event.getItem().getTs())
-                        .text("<@" + event.getUser() + "> Thank you! We greatly appreciate your efforts :two_hearts:"));
-                if (!message.isOk()) {
-                    ctx.logger.error("chat.postMessage failed: {}", message.getError());
-                }
-            }
-            return ctx.ack();
-        });
+//        app.event(ReactionAddedEvent.class, (payload, ctx) -> {
+//            System.out.println("Reaction!!!");
+//            ReactionAddedEvent event = payload.getEvent();
+//            if (event.getReaction().equals("white_check_mark")) {
+//                ChatPostMessageResponse message = ctx.client().chatPostMessage(r -> r
+//                        .channel(event.getItem().getChannel())
+//                        .threadTs(event.getItem().getTs())
+//                        .text("<@" + event.getUser() + "> Thank you! We greatly appreciate your efforts :two_hearts:"));
+//                if (!message.isOk()) {
+//                    ctx.logger.error("chat.postMessage failed: {}", message.getError());
+//                }
+//            }
+//            return ctx.ack();
+//        });
 
         app.event(MessageEvent.class, (req, ctx) -> {
             System.out.println("New MessageEvent!!!");
             ctx.say("<@" + req.getEvent().getUser() + "> Hi!!!!");
-            ctx.say(asBlocks(
-                    divider(),
-                    actions(actions -> actions.elements(asElements(
-                            button(b -> b.text(plainText(pt -> pt.text("Button1"))).value("button1").actionId("button_1")),
-                            button(c -> c.text(plainText(pt -> pt.text("Button2"))).value("button1").actionId("button_2"))
-                            ))
-                    )
-            ));
 
-            ctx.say(asBlocks(section(section -> section.text(markdownText("Select description"))
-                    .accessory(staticSelect(a ->
-                                    a.placeholder(plainText(pt -> pt.text("Select an item")))
-                                            .options(
-                                                    asOptions(
-                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
-                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
+//            ctx.say(
+//                    asBlocks(
+//                    section(section -> section.text(markdownText("Select description"))
+//                            .accessory(staticSelect(a ->
+//                                            a.placeholder(plainText(pt -> pt.text("Select an item")))
+//                                                    .options(
+//                                                            asOptions(
+//                                                                    option(opt -> opt.text(plainText(pt -> pt.text("Scope test 1")))),
+//                                                                    option(opt -> opt.text(plainText(pt -> pt.text("Scope test 2"))))
+//                                                            )
+//                                                    ).actionId("users-select")
+//                                    )
+//                            )
+//                    )));
+
+            ctx.asyncClient().viewsOpen(r -> r
+                    .triggerId(req.getEventContext())
+                    .view(view(v -> v
+                                    .type("modal")
+                                    .callbackId("test-view")
+                                    .title(viewTitle(vt -> vt.type("plain_text").text("Modal by Global Shortcut")))
+                                    .close(viewClose(vc -> vc.type("plain_text").text("Close")))
+                                    .submit(viewSubmit(vs -> vs.type("plain_text").text("Submit")))
+                                    .blocks(asBlocks(
+//                                    input(input -> input
+//                                    .blockId("agenda-block")
+//                                    .element(plainTextInput(pti -> pti.actionId("agenda-action").multiline(true)))
+//                                    .label(plainText(pt -> pt.text("Detailed Agenda").emoji(true)))
+                                            section(section -> section.text(markdownText("Select description"))
+                                                    .blockId("users-select")
+                                                    .accessory(staticSelect(a ->
+                                                                    a.placeholder(plainText(pt -> pt.text("Select an item")))
+                                                                            .options(
+                                                                                    asOptions(
+                                                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 1")))),
+                                                                                            option(opt -> opt.text(plainText(pt -> pt.text("Var 2"))))
+                                                                                    )
+                                                                            ).actionId("users-select")
+                                                            )
                                                     )
                                             )
-                            )
-                    )
-            )));
+                                    )))
+                    ));
 
-            System.out.println(ctx.ack().getBody());
             return ctx.ack();
         });
 

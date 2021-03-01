@@ -19,6 +19,12 @@ dependencies {
     implementation("org.glassfish.tyrus.bundles:tyrus-standalone-client:1.17")
     implementation("com.slack.api:bolt-socket-mode:1.5.3")
     implementation("org.slf4j:slf4j-simple:1.7.30")
+    compile "io.rest-assured:rest-assured:3.2.0"
+    compile "com.fasterxml.jackson.core:jackson-databind:2.9.8"
+    compile "com.fasterxml.jackson.core:jackson-core:2.9.8"
+    compile group: 'com.fasterxml.jackson.datatype', name: 'jackson-datatype-jsr310', version: '2.11.1'
+    compile "org.projectlombok:lombok:1.18.8"
+    annotationProcessor "org.projectlombok:lombok:1.18.8"
 }
 
 test {
